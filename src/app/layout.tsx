@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full scroll-smooth">
-      <body className={`${inter.className} min-h-full bg-[#f3f4f6] text-black antialiased`}>
+      <body className={`${inter.className} min-h-full bg-[#f3f4f6] text-black antialiased`} suppressHydrationWarning>
         <SessionProvider>
           {children}
           <Toaster position="bottom-right" />
