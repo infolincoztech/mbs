@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  MARQUEE_ADMIN
+  STAFF
+  CLIENT
+}
+
+enum BookingStatus {
+  INQUIRY
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum HallStatus {
+  AVAILABLE
+  BOOKED
+  MAINTENANCE
+  CLOSED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  TRIAL
+  SUSPENDED
+}
+
+enum PlanType {
+  BASIC
+  TRIAL
+  MONTHLY
+  HALF_YEARLY
+  YEARLY
+  LIFETIME
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          Role      @default(CLIENT)
+  phone         String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  ownedMarquee  Marquee?  @relation("MarqueeOwner")
+  bookings      Booking[] @relation("ClientBookings")
+  notifications Notification[]
+  deviceLicense DeviceLicense?
+}
+
+model Marquee {
+  id              String        @id @default(cuid())
+  name            String
+  slug            String        @unique
+  logo            String?
+  address         String?
+  contactPhone    String?
+  contactEmail    String?
+  
+  // White-labeling / Branding
+  primaryColor    String        @default("#3b82f6") // Blue accent
+  secondaryColor  String        @default("#f3f4f6") // Light gray
+  fontFamily      String        @default("Inter")
+  
+  ownerId         String        @unique
+  owner           User          @relation("MarqueeOwner", fields: [ownerId], references: [id])
+  
+  subscription    Subscription?
+  halls           Hall[]
+  packages        Package[]
+  facilities      Facility[]
+  staff           Staff[]
+  financials      FinancialRecord[]
+  payrolls        Payroll[]
+  inventory       InventoryItem[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Subscription {
+  id          String             @id @default(cuid())
+  marqueeId   String             @unique
+  marquee     Marquee            @relation(fields: [marqueeId], references: [id])
+  planType    PlanType           @default(BASIC)
+  status      SubscriptionStatus @default(TRIAL)
+  startDate   DateTime           @default(now())
+  endDate     DateTime
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model Hall {
+  id              String      @id @default(cuid())
+  marqueeId       String
+  marquee         Marquee     @relation(fields: [marqueeId], references: [id])
+  name            String
+  capacity        Int
+  pricePerSlot    Float       @default(0)
+  pricePerHead    Float       @default(0)
+  status          HallStatus  @default(AVAILABLE)
+  features        String[]    // AC, Outdoor, etc.
+  images          String[]
+  bookings        Booking[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  hallId          String
+  hall            Hall          @relation(fields: [hallId], references: [id])
+  clientId        String
+  client          User          @relation("ClientBookings", fields: [clientId], references: [id])
+  eventDate       DateTime
+  startTime       String?       // Manual entry e.g. "12:00 PM"
+  endTime         String?       // Manual entry e.g. "04:00 PM"
+  guestCount      Int
+  pricePerHead    Float         @default(0)
+  status          BookingStatus @default(PENDING)
+  totalAmount     Float
+  paidAmount      Float         @default(0)
+  
+  // Customization
+  selectedPackages Package[]
+  selectedFacilities Facility[]
+  
+  notes           String?
+  qrCode          String?
+  
+  // Walk-in Customer Specifics
+  clientName      String?
+  clientPhone     String?
+  clientAddress   String?
+  clientCnic      String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Package {
+  id          String    @id @default(cuid())
+  marqueeId   String
+  marquee     Marquee   @relation(fields: [marqueeId], references: [id])
+  name        String
+  description String?
+  price       Float
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Facility {
+  id          String    @id @default(cuid())
+  marqueeId   String
+  marquee     Marquee   @relation(fields: [marqueeId], references: [id])
+  name        String
+  price       Float
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Staff {
+  id          String    @id @default(cuid())
+  marqueeId   String
+  marquee     Marquee   @relation(fields: [marqueeId], references: [id])
+  name        String
+  email       String?
+  designation String
+  salary      Float
+  advanceTaken Float    @default(0)
+  advances    Advance[]
+  payrolls    Payroll[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Advance {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id])
+  amount    Float
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model Payroll {
+  id              String    @id @default(cuid())
+  staffId         String
+  staff           Staff     @relation(fields: [staffId], references: [id])
+  marqueeId       String
+  marquee         Marquee   @relation(fields: [marqueeId], references: [id])
+  baseSalary      Float
+  advanceDeducted Float     @default(0)
+  bonus           Float     @default(0)
+  netPaid         Float
+  month           DateTime
+  createdAt       DateTime  @default(now())
+}
+
+model FinancialRecord {
+  id          String    @id @default(cuid())
+  marqueeId   String
+  marquee     Marquee   @relation(fields: [marqueeId], references: [id])
+  type        String    // INCOME or EXPENSE
+  amount      Float
+  category    String
+  description String?
+  date        DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   // INFO, SUCCESS, WARNING, ERROR
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model InventoryItem {
+  id          String    @id @default(cuid())
+  marqueeId   String
+  marquee     Marquee   @relation(fields: [marqueeId], references: [id])
+  name        String
+  quantity    Int
+  unit        String    // pieces, sets, etc.
+  status      String    // OK, DAMAGED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model DeviceLicense {
+  id          String   @id @default(cuid())
+  machineId   String   @unique
+  userId      String?  @unique
+  user        User?    @relation(fields: [userId], references: [id])
+  clientName  String?
+  osInfo      String?  // OS details/Browser details
+  ipAddress   String?
+  hostname    String?
+  status      String   @default("PENDING") // PENDING, ACTIVE, BLOCKED
+  planType    PlanType @default(TRIAL)
+  endDate     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
